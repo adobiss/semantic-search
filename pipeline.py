@@ -6,6 +6,8 @@ from sklearn.model_selection import train_test_split
 import torch
 import faiss
 import json
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Configuration Management
 def load_config(config_path):
@@ -101,7 +103,7 @@ class BERTEmbedder:
             with torch.no_grad():
                 outputs = self.model(**inputs)
             batch_embeddings = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
-            # Normalize embeddings for cosine similarity
+            # Normalise embeddings for cosine similarity
             batch_embeddings = batch_embeddings / np.linalg.norm(batch_embeddings, axis=1, keepdims=True)
             embeddings.append(batch_embeddings)
         return np.vstack(embeddings)
@@ -282,3 +284,55 @@ def match_compositions(matched_subset, canonical_vectors, embedder, canonical_df
         })
     
     return pd.DataFrame(results)
+
+# Performance analysis
+def result_dist(results):
+    """
+    Visualises and prints the distribution of similarity scores for true and false matches.
+    
+    Parameters:
+    results (DataFrame): The DataFrame containing match results with the following columns:
+        - 'Correct_Match': Boolean indicating whether the match is true or false.
+        - 'Similarity_Score': Numeric value representing the similarity score.
+    
+    This function:
+    1. Plots histograms with KDE (Kernel Density Estimate) for the similarity scores of true and false matches.
+    2. Displays descriptive statistics (count, mean, std, min, quartiles, max) for both true and false match distributions.
+    """
+
+    # Extract similarity scores for true and false matches
+    true_matches = results.loc[results['Correct_Match'] == True, 'Similarity_Score']
+    false_matches = results.loc[results['Correct_Match'] == False, 'Similarity_Score']
+
+    # Create subplots for visualising the distributions
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
+
+    # Plot histogram with KDE for true matches
+    sns.histplot(true_matches, kde=True, ax=axes[0], color='dodgerblue')
+    
+    # Plot histogram with KDE for false matches
+    sns.histplot(false_matches, kde=True, ax=axes[1], color='orangered')
+
+    # Set titles and labels for the true and false match plots
+    axes[0].set_title('True Match Similarity Score Distribution')
+    axes[0].set_xlabel('Similarity Score')
+    axes[0].set_ylabel('Count')
+
+    axes[1].set_title('False Match Similarity Score Distribution')
+    axes[1].set_xlabel('Similarity Score')
+    axes[1].set_ylabel('Count')
+
+    # Adjust layout to avoid overlap
+    plt.tight_layout()
+    plt.show()
+
+    # Descriptive statistics for true and false matches
+    true_matches_dist = true_matches.describe()
+    true_matches_dist.name = 'True Match Distribution'
+
+    false_matches_dist = false_matches.describe()
+    false_matches_dist.name = 'False Match Distribution'
+
+    # Print the distribution statistics
+    print(true_matches_dist, '\n')
+    print(false_matches_dist)
